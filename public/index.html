@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamFlow - 实时协作看板</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
+            </svg>
+            <div>
+                <h1>TeamFlow</h1>
+                <p>2-5人实时协作看板</p>
+            </div>
+        </div>
+        
+        <div class="nav-controls">
+            <div class="room-control">
+                <input type="text" id="roomInput" placeholder="房间号" value="demo">
+                <button onclick="joinRoom()">连接</button>
+            </div>
+            <span id="connStatus" class="status offline">离线</span>
+            <button onclick="exportData()">导出</button>
+            <button onclick="clearAll()" class="danger">清空</button>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <div class="stats-bar">
+            <div class="stat-card todo">
+                <div class="stat-icon">⏳</div>
+                <div>
+                    <span class="stat-num" id="stat-todo">0</span>
+                    <span class="stat-label">待办</span>
+                </div>
+            </div>
+            <div class="stat-card doing">
+                <div class="stat-icon">⚡</div>
+                <div>
+                    <span class="stat-num" id="stat-doing">0</span>
+                    <span class="stat-label">进行中</span>
+                </div>
+            </div>
+            <div class="stat-card done">
+                <div class="stat-icon">✓</div>
+                <div>
+                    <span class="stat-num" id="stat-done">0</span>
+                    <span class="stat-label">已完成</span>
+                </div>
+            </div>
+            <div class="stat-card rate">
+                <div class="stat-icon">%</div>
+                <div>
+                    <span class="stat-num" id="stat-rate">0%</span>
+                    <span class="stat-label">完成率</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-row">
+            <div class="chart-box">
+                <h3>近7天任务趋势</h3>
+                <div class="chart-wrapper">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-box">
+                <h3>任务分布</h3>
+                <div class="chart-wrapper">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="board">
+            <div class="column col-todo">
+                <div class="column-header">
+                    <span>待办事项</span>
+                    <span class="badge" id="badge-todo">0</span>
+                    <button class="add-btn" onclick="openModal('todo')">+</button>
+                </div>
+                <div class="column-body" id="col-todo" 
+                     ondrop="handleDrop(event, 'todo')" 
+                     ondragover="handleDragOver(event)"
+                     ondragleave="handleDragLeave(event)"></div>
+            </div>
+
+            <div class="column col-doing">
+                <div class="column-header">
+                    <span>进行中</span>
+                    <span class="badge" id="badge-doing">0</span>
+                    <button class="add-btn" onclick="openModal('doing')">+</button>
+                </div>
+                <div class="column-body" id="col-doing"
+                     ondrop="handleDrop(event, 'doing')" 
+                     ondragover="handleDragOver(event)"
+                     ondragleave="handleDragLeave(event)"></div>
+            </div>
+
+            <div class="column col-done">
+                <div class="column-header">
+                    <span>已完成</span>
+                    <span class="badge" id="badge-done">0</span>
+                    <button class="add-btn" onclick="openModal('done')">+</button>
+                </div>
+                <div class="column-body" id="col-done"
+                     ondrop="handleDrop(event, 'done')" 
+                     ondragover="handleDragOver(event)"
+                     ondragleave="handleDragLeave(event)"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="taskModal" class="modal" onclick="if(event.target===this)closeModal()">
+        <div class="modal-content">
+            <h3>添加新任务</h3>
+            <form id="taskForm" onsubmit="saveTask(event)">
+                <input type="hidden" id="taskStatus">
+                
+                <div class="form-group">
+                    <label>任务标题 *</label>
+                    <input type="text" id="taskTitle" required placeholder="输入任务标题...">
+                </div>
+                
+                <div class="form-group">
+                    <label>任务内容</label>
+                    <textarea id="taskContent" placeholder="详细描述（可选）..."></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>负责人</label>
+                        <select id="taskAssignee">
+                            <option value="A">成员 A</option>
+                            <option value="B">成员 B</option>
+                            <option value="C">成员 C</option>
+                            <option value="D">成员 D</option>
+                            <option value="E">成员 E</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>优先级</label>
+                        <select id="taskPriority">
+                            <option value="low">低</option>
+                            <option value="med">中</option>
+                            <option value="high">高</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>标签</label>
+                    <div class="tags-select">
+                        <button type="button" onclick="toggleTag(this, '设计')">设计</button>
+                        <button type="button" onclick="toggleTag(this, '开发')">开发</button>
+                        <button type="button" onclick="toggleTag(this, '测试')">测试</button>
+                        <button type="button" onclick="toggleTag(this, '文档')">文档</button>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" onclick="closeModal()">取消</button>
+                    <button type="submit" class="primary">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
